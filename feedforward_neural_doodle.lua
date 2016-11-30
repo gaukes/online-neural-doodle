@@ -46,14 +46,18 @@ params.vgg_no_pad = params.vgg_no_pad ~= 'false'
 params.circular_padding = params.circular_padding ~= 'false'
 
 local train_hdf5 = hdf5.open(params.masks_hdf5)
-local style_img = train_hdf5:read('style_img'):all()
+local style_img_a = train_hdf5:read('style_img_a'):all()
+local style_img_b = train_hdf5:read('style_img_b'):all()
 local style_mask = train_hdf5:read('style_mask'):all()
 
 n_colors = style_mask:size(1)
 
-local width = style_img:size(2)
-local height = style_img:size(3)
+local width = style_img_a:size(2)
+local height = style_img_a:size(3)
 
+if (width ~= style_img_b:size(2) or height ~= style_img_b:size(3)) then
+  print 'The width or height of the inputs dont match! Please fix this.'
+end
 
 if params.backend == 'cudnn' then
   require 'cudnn'

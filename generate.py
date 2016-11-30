@@ -17,7 +17,8 @@ parser = argparse.ArgumentParser()
 
 parser.add_argument(
     '--n_colors', type=int, help='How many distinct colors does mask have.')
-parser.add_argument('--style_image', help='Path to style image.')
+parser.add_argument('--style_image_a', help='Path to style image.')
+parser.add_argument('--style_image_b', help='Path to style image.')
 parser.add_argument('--style_mask', help='Path to mask for style.')
 parser.add_argument(
     '--out_hdf5', default='gen_doodles.hdf5', help='Where to store hdf5 file.')
@@ -26,12 +27,14 @@ parser.add_argument(
 
 args = parser.parse_args()
 
-style_img = args.style_image
+style_img_a = args.style_image_a
+style_img_b = args.style_image_b
 style_mask_img = args.style_mask
 n_colors = args.n_colors
 
 # get shape
-im = scipy.misc.imread(style_img)
+# TODO: This could also cause a problem later on; make sure the dimensions match
+im = scipy.misc.imread(style_img_a)
 dims = (im.shape[0], im.shape[1])
 
 
@@ -77,9 +80,12 @@ ohe = OneHotEncoder(sparse=False)
 
 # get style mask
 # IMAGE
-img_style = scipy.misc.imread(style_img)[..., :3]
-img_style = scipy.misc.imresize(img_style, dims)
-f['style_img'] = img_style.transpose(2, 0, 1).astype(float) / 255.
+img_style_a = scipy.misc.imread(style_img_a)[..., :3]
+img_style_b = scipy.misc.imread(style_img_b)[..., :3]
+img_style_a = scipy.misc.imresize(img_style_a, dims)
+img_style_b = scipy.misc.imresize(img_style_b, dims)
+f['style_img_a'] = img_style_a.transpose(2, 0, 1).astype(float) / 255.
+f['style_img_b'] = img_style_b.transpose(2, 0, 1).astype(float) / 255.
 
 # MASK
 img_style_mask = scipy.misc.imread(style_mask_img)[..., :3]

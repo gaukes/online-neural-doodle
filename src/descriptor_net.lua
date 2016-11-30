@@ -11,9 +11,11 @@ function create_loss_net(params, half)
   local half = half or false
 -- Load style
   local f_data = hdf5.open(params.masks_hdf5)
-  local style_img = f_data:read('style_img'):all()
+  local style_img_a = f_data:read('style_img_a'):all()
+  local style_img_b = f_data:read('style_img_b'):all()
   
-  style_img = preprocess(style_img):add_dummy():cuda()
+  style_img_a = preprocess(style_img_a):add_dummy():cuda()
+  style_img_b = preprocess(style_img_b):add_dummy():cuda()
   
 
 
@@ -94,28 +96,48 @@ function create_loss_net(params, half)
         local gram = GramMatrix():cuda()
 
         -- 1 x C x W x H
-        local target_features = net:forward(style_img):clone()
+        local target_features_a = net:forward(style_img_a):clone()
+        local target_features_b = net:forward(style_img_b):clone()
         -- M x W x H
         local layer_masks = mask_net_avg:forward(style_mask)
 
         -- Compute target gram mats
         local target_grams = {}
-        for k = 1, n_colors do
+        for k = 1, n_colors/2 do
 
           -- 1 x 1 x W x H
           local mask = layer_masks:narrow(1,k,1):add_dummy()
           -- 1 x C x W x H
           -- print(target_features:size(), mask:size(), mask_net)
-          local exp_mask = mask:expandAs(target_features)
+          local exp_mask = mask:expandAs(target_features_a)
           -- 1 x C x W x H
-          local masked = torch.cmul(target_features, exp_mask)
+          local masked = torch.cmul(target_features_a, exp_mask)
           -- 1 x C x C
           local target = gram:forward(masked):clone()
 
-          target:div(target_features[1]:nElement() * (mask:mean()+1e-6))
+          target:div(target_features_a[1]:nElement() * (mask:mean()+1e-6))
           
           target_grams[k] = target
         end
+
+	for k = n_colors/2, n_colors do
+
+          -- 1 x 1 x W x H
+          local mask = layer_masks:narrow(1,k,1):add_dummy()
+          -- 1 x C x W x H
+          -- print(target_features:size(), mask:size(), mask_net)
+          local exp_mask = mask:expandAs(target_features_b)
+          -- 1 x C x W x H
+          local masked = torch.cmul(target_features_b, exp_mask)
+          -- 1 x C x C
+          local target = gram:forward(masked):clone()
+
+          target:div(target_features_b[1]:nElement() * (mask:mean()+1e-6))
+          
+          target_grams[k] = target
+        end
+
+
 
         local norm = params.normalize_gradients
         local loss_module = nn.StyleLoss(params.style_weight, target_grams, norm):cuda()
